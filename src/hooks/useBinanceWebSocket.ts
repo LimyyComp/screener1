@@ -1,28 +1,36 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { BinanceWebSocket, fetchInitialTickers } from '../services/binance';
+import { BinanceWebSocket, fetchInitialTickers, fetchFuturesSymbols } from '../services/binance';
 
 export const useBinanceWebSocket = () => {
-  const { marketType, updateTicker } = useStore();
+  const { updateTicker, setFuturesSymbols } = useStore();
   const wsRef = useRef<BinanceWebSocket | null>(null);
   const priceHistoryRef = useRef<Map<string, number[]>>(new Map());
 
   useEffect(() => {
-    // Fetch initial data
-    fetchInitialTickers(marketType).then((initialTickers) => {
-      initialTickers.forEach((ticker) => {
-        // Initialize price history for sparklines
-        const history = priceHistoryRef.current.get(ticker.symbol) || [];
-        history.push(ticker.price);
-        // Keep only last 60 points
-        if (history.length > 60) {
-          history.shift();
-        }
-        priceHistoryRef.current.set(ticker.symbol, history);
-        
-        updateTicker({
-          ...ticker,
-          sparkline: history,
+    // Fetch futures symbols list first
+    fetchFuturesSymbols().then((symbols) => {
+      setFuturesSymbols(symbols);
+      
+      // Fetch initial data
+      fetchInitialTickers().then((initialTickers) => {
+        initialTickers.forEach((ticker) => {
+          // Only process futures symbols
+          if (!symbols.includes(ticker.symbol)) return;
+          
+          // Initialize price history for sparklines
+          const history = priceHistoryRef.current.get(ticker.symbol) || [];
+          history.push(ticker.price);
+          // Keep only last 60 points
+          if (history.length > 60) {
+            history.shift();
+          }
+          priceHistoryRef.current.set(ticker.symbol, history);
+          
+          updateTicker({
+            ...ticker,
+            sparkline: history,
+          });
         });
       });
     });
@@ -49,13 +57,13 @@ export const useBinanceWebSocket = () => {
       } else {
         updateTicker(tickerUpdate);
       }
-    }, marketType);
+    });
 
     return () => {
       ws.disconnect();
       wsRef.current = null;
       priceHistoryRef.current.clear();
     };
-  }, [marketType, updateTicker]);
+  }, [updateTicker, setFuturesSymbols]);
 };
 

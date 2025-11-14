@@ -5,7 +5,7 @@ import { BinanceWebSocket, fetchKlineHistory } from '../services/binance';
 import { KlineData } from '../types';
 
 export const ChartModal: React.FC = () => {
-  const { selectedSymbol, marketType, timeframe, setSelectedSymbol } = useStore();
+  const { selectedSymbol, timeframe, setSelectedSymbol, isDarkMode } = useStore();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -26,17 +26,22 @@ export const ChartModal: React.FC = () => {
       wsRef.current = null;
     }
 
-    // Initialize chart
-    const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
+    setIsLoading(true);
+
+    // Initialize chart only after container is ready
+    const container = chartContainerRef.current;
+    if (!container) return;
+
+    const chart = createChart(container, {
+      width: container.clientWidth,
       height: 500,
       layout: {
         background: { color: 'transparent' },
-        textColor: useStore.getState().isDarkMode ? '#e5e7eb' : '#1f2937',
+        textColor: isDarkMode ? '#e5e7eb' : '#1f2937',
       },
       grid: {
-        vertLines: { color: useStore.getState().isDarkMode ? '#374151' : '#e5e7eb' },
-        horzLines: { color: useStore.getState().isDarkMode ? '#374151' : '#e5e7eb' },
+        vertLines: { color: isDarkMode ? '#374151' : '#e5e7eb' },
+        horzLines: { color: isDarkMode ? '#374151' : '#e5e7eb' },
       },
       timeScale: {
         timeVisible: true,
@@ -65,9 +70,10 @@ export const ChartModal: React.FC = () => {
     volumeSeriesRef.current = volumeSeries;
 
     // Load historical data
-    setIsLoading(true);
-    fetchKlineHistory(selectedSymbol, timeframe, marketType)
+    fetchKlineHistory(selectedSymbol, timeframe)
       .then((klines) => {
+        if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
+
         const candlestickData: CandlestickData[] = klines.map((k) => ({
           time: k.time as Time,
           open: k.open,
@@ -82,8 +88,8 @@ export const ChartModal: React.FC = () => {
           color: k.close >= k.open ? '#00d4aa80' : '#ff497680',
         }));
 
-        candlestickSeries.setData(candlestickData);
-        volumeSeries.setData(volumeData);
+        candlestickSeriesRef.current.setData(candlestickData);
+        volumeSeriesRef.current.setData(volumeData);
 
         // Update sparkline data in store
         const prices = klines.map((k) => k.close);
@@ -120,7 +126,7 @@ export const ChartModal: React.FC = () => {
           color: kline.close >= kline.open ? '#00d4aa80' : '#ff497680',
         });
       }
-    }, marketType);
+    });
 
     // Handle resize
     const handleResize = () => {
@@ -146,23 +152,7 @@ export const ChartModal: React.FC = () => {
       candlestickSeriesRef.current = null;
       volumeSeriesRef.current = null;
     };
-  }, [selectedSymbol, marketType, timeframe]);
-
-  const isDarkMode = useStore((state) => state.isDarkMode);
-
-  useEffect(() => {
-    if (chartRef.current) {
-      chartRef.current.applyOptions({
-        layout: {
-          textColor: isDarkMode ? '#e5e7eb' : '#1f2937',
-        },
-        grid: {
-          vertLines: { color: isDarkMode ? '#374151' : '#e5e7eb' },
-          horzLines: { color: isDarkMode ? '#374151' : '#e5e7eb' },
-        },
-      });
-    }
-  }, [isDarkMode]);
+  }, [selectedSymbol, timeframe, isDarkMode]);
 
   if (!selectedSymbol) return null;
 

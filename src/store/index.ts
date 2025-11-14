@@ -1,9 +1,8 @@
 import { create } from 'zustand';
-import { AppState, TickerData, MarketType, Timeframe, SortField, SortDirection } from '../types';
+import { AppState, TickerData, Timeframe, SortField, SortDirection } from '../types';
 
 export const useStore = create<AppState>((set, get) => ({
   // Initial state
-  marketType: 'spot',
   timeframe: '1m',
   sortField: 'volume',
   sortDirection: 'desc',
@@ -11,36 +10,60 @@ export const useStore = create<AppState>((set, get) => ({
   isDarkMode: true,
   tickers: new Map(),
   selectedSymbol: null,
+  futuresSymbols: new Set<string>(),
 
   // Actions
-  setMarketType: (type: MarketType) => set({ marketType: type }),
   setTimeframe: (timeframe: Timeframe) => set({ timeframe }),
   setSortField: (field: SortField) => set({ sortField: field }),
   setSortDirection: (direction: SortDirection) => set({ sortDirection: direction }),
   setSearchQuery: (query: string) => set({ searchQuery: query }),
   toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
   
+  setFuturesSymbols: (symbols: string[]) => set({ futuresSymbols: new Set(symbols) }),
+  
   updateTicker: (tickerUpdate) => {
     const { symbol, ...updates } = tickerUpdate;
-    set((state) => {
-      const newTickers = new Map(state.tickers);
-      const existing = newTickers.get(symbol) || {
-        symbol,
-        price: 0,
-        priceChange: 0,
-        priceChangePercent: 0,
-        volume: 0,
-        quoteVolume: 0,
-        sparkline: [],
-        lastUpdate: Date.now(),
-      };
+    const state = get();
+    
+    // Only update if it's a futures symbol
+    if (!state.futuresSymbols.has(symbol) && state.futuresSymbols.size > 0) {
+      return;
+    }
+    
+    set((currentState) => {
+      const newTickers = new Map(currentState.tickers);
+      const existing = newTickers.get(symbol);
       
-      newTickers.set(symbol, {
-        ...existing,
+      // Only update if data actually changed to prevent unnecessary re-renders
+      if (existing) {
+        const hasChanges = Object.keys(updates).some((key) => {
+          const updateKey = key as keyof typeof updates;
+          const existingKey = key as keyof TickerData;
+          return existing[existingKey] !== updates[updateKey];
+        });
+        
+        if (!hasChanges) {
+          return currentState; // No changes, return same state
+        }
+      }
+      
+      const updated = {
+        ...(existing || {
+          symbol,
+          price: 0,
+          priceChange: 0,
+          priceChangePercent: 0,
+          volume: 0,
+          quoteVolume: 0,
+          sparkline: [],
+          lastUpdate: Date.now(),
+        }),
         ...updates,
         symbol,
         lastUpdate: Date.now(),
-      });
+      };
+      
+      newTickers.set(symbol, updated);
       
       return { tickers: newTickers };
     });

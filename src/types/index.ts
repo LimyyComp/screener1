@@ -25,7 +25,6 @@ export interface KlineData {
 
 export interface AppState {
   // Market settings
-  marketType: MarketType;
   timeframe: Timeframe;
   sortField: SortField;
   sortDirection: SortDirection;
@@ -35,9 +34,9 @@ export interface AppState {
   // Data
   tickers: Map<string, TickerData>;
   selectedSymbol: string | null;
+  futuresSymbols: Set<string>;
   
   // Actions
-  setMarketType: (type: MarketType) => void;
   setTimeframe: (timeframe: Timeframe) => void;
   setSortField: (field: SortField) => void;
   setSortDirection: (direction: SortDirection) => void;
@@ -45,6 +44,7 @@ export interface AppState {
   toggleDarkMode: () => void;
   updateTicker: (ticker: Partial<TickerData> & { symbol: string }) => void;
   setSelectedSymbol: (symbol: string | null) => void;
+  setFuturesSymbols: (symbols: string[]) => void;
   getFilteredAndSortedTickers: () => TickerData[];
 }
 

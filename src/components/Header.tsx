@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../store';
-import { MarketType, Timeframe, SortField } from '../types';
+import { Timeframe, SortField } from '../types';
 
 const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h', '4h', '1d'];
 const sortFields: { value: SortField; label: string }[] = [
@@ -12,13 +12,11 @@ const sortFields: { value: SortField; label: string }[] = [
 
 export const Header: React.FC = () => {
   const {
-    marketType,
     timeframe,
     sortField,
     sortDirection,
     searchQuery,
     isDarkMode,
-    setMarketType,
     setTimeframe,
     setSortField,
     setSortDirection,
@@ -30,30 +28,6 @@ export const Header: React.FC = () => {
     <header className="bg-bg-secondary border-b border-border-color sticky top-0 z-10">
       <div className="container mx-auto px-4 py-3">
         <div className="flex flex-wrap items-center gap-4">
-          {/* Market Type Toggle */}
-          <div className="flex items-center gap-2 bg-bg-primary rounded-lg p-1">
-            <button
-              onClick={() => setMarketType('spot')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                marketType === 'spot'
-                  ? 'bg-green-up text-white'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              Spot
-            </button>
-            <button
-              onClick={() => setMarketType('futures')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                marketType === 'futures'
-                  ? 'bg-green-up text-white'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              Futures
-            </button>
-          </div>
-
           {/* Timeframe Buttons */}
           <div className="flex items-center gap-1">
             {timeframes.map((tf) => (

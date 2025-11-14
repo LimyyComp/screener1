@@ -1,4 +1,4 @@
-import { TickerData, KlineData, MarketType, Timeframe } from '../types';
+import { TickerData, KlineData, Timeframe } from '../types';
 
 const BINANCE_SPOT_WS = 'wss://stream.binance.com:9443/ws/';
 const BINANCE_FUTURES_WS = 'wss://fstream.binance.com/ws/';
@@ -19,18 +19,14 @@ export class BinanceWebSocket {
   private reconnectDelay = 1000;
   private onTickerUpdate: ((ticker: Partial<TickerData> & { symbol: string }) => void) | null = null;
   private onKlineUpdate: ((kline: KlineData) => void) | null = null;
-  private marketType: MarketType = 'spot';
   private symbol: string | null = null;
   private timeframe: Timeframe = '1m';
 
-  connectMiniTicker(onUpdate: (ticker: Partial<TickerData> & { symbol: string }) => void, marketType: MarketType) {
+  connectMiniTicker(onUpdate: (ticker: Partial<TickerData> & { symbol: string }) => void) {
     this.onTickerUpdate = onUpdate;
-    this.marketType = marketType;
     this.disconnect();
     
-    const stream = marketType === 'spot' 
-      ? `${BINANCE_SPOT_WS}!miniTicker@arr`
-      : `${BINANCE_FUTURES_WS}!miniTicker@arr`;
+    const stream = `${BINANCE_FUTURES_WS}!miniTicker@arr`;
     
     this.connect(stream, (data) => {
       if (Array.isArray(data)) {
@@ -58,18 +54,14 @@ export class BinanceWebSocket {
   connectKline(
     symbol: string,
     timeframe: Timeframe,
-    onUpdate: (kline: KlineData) => void,
-    marketType: MarketType = 'spot'
+    onUpdate: (kline: KlineData) => void
   ) {
     this.onKlineUpdate = onUpdate;
     this.symbol = symbol.toLowerCase();
     this.timeframe = timeframe;
-    this.marketType = marketType;
     this.disconnect();
     
-    const stream = marketType === 'spot'
-      ? `${BINANCE_SPOT_WS}${this.symbol}@kline_${timeframeMap[timeframe]}`
-      : `${BINANCE_FUTURES_WS}${this.symbol}@kline_${timeframeMap[timeframe]}`;
+    const stream = `${BINANCE_FUTURES_WS}${this.symbol}@kline_${timeframeMap[timeframe]}`;
     
     this.connect(stream, (data) => {
       if (data.k) {
@@ -133,13 +125,24 @@ export class BinanceWebSocket {
 }
 
 // REST API functions
-export async function fetchInitialTickers(marketType: MarketType): Promise<TickerData[]> {
-  const baseUrl = marketType === 'spot'
-    ? 'https://api.binance.com/api/v3'
-    : 'https://fapi.binance.com/fapi/v1';
-  
+export async function fetchFuturesSymbols(): Promise<string[]> {
   try {
-    const response = await fetch(`${baseUrl}/ticker/24hr`);
+    const response = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo');
+    const data = await response.json();
+    
+    // Filter only USDT-M futures pairs
+    return data.symbols
+      .filter((s: any) => s.status === 'TRADING' && s.contractType === 'PERPETUAL' && s.quoteAsset === 'USDT')
+      .map((s: any) => s.symbol);
+  } catch (error) {
+    console.error('Error fetching futures symbols:', error);
+    return [];
+  }
+}
+
+export async function fetchInitialTickers(): Promise<TickerData[]> {
+  try {
+    const response = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
     const data = await response.json();
     
     return data.map((item: any) => ({
@@ -161,16 +164,11 @@ export async function fetchInitialTickers(marketType: MarketType): Promise<Ticke
 export async function fetchKlineHistory(
   symbol: string,
   timeframe: Timeframe,
-  marketType: MarketType,
   limit: number = 500
 ): Promise<KlineData[]> {
-  const baseUrl = marketType === 'spot'
-    ? 'https://api.binance.com/api/v3'
-    : 'https://fapi.binance.com/fapi/v1';
-  
   try {
     const response = await fetch(
-      `${baseUrl}/klines?symbol=${symbol.toUpperCase()}&interval=${timeframeMap[timeframe]}&limit=${limit}`
+      `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=${timeframeMap[timeframe]}&limit=${limit}`
     );
     const data = await response.json();
     
