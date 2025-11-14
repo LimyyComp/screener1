@@ -76,3 +76,14 @@ code {
   background: var(--text-secondary);
 }
 
+/* Hide TradingView watermark */
+.pane-legend,
+.tv-lightweight-charts__pane-legend {
+  display: none !important;
+}
+
+/* Drawing tools styles */
+.tv-lightweight-charts {
+  position: relative;
+}
+
