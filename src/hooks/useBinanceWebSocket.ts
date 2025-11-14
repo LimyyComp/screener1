@@ -33,18 +33,22 @@ export const useBinanceWebSocket = () => {
 
     ws.connectMiniTicker((tickerUpdate) => {
       // Update price history for sparkline
-      const history = priceHistoryRef.current.get(tickerUpdate.symbol) || [];
-      history.push(tickerUpdate.price);
-      // Keep only last 60 points
-      if (history.length > 60) {
-        history.shift();
-      }
-      priceHistoryRef.current.set(tickerUpdate.symbol, history);
+      if (tickerUpdate.price !== undefined) {
+        const history = priceHistoryRef.current.get(tickerUpdate.symbol) || [];
+        history.push(tickerUpdate.price);
+        // Keep only last 60 points
+        if (history.length > 60) {
+          history.shift();
+        }
+        priceHistoryRef.current.set(tickerUpdate.symbol, history);
 
-      updateTicker({
-        ...tickerUpdate,
-        sparkline: [...history],
-      });
+        updateTicker({
+          ...tickerUpdate,
+          sparkline: [...history],
+        });
+      } else {
+        updateTicker(tickerUpdate);
+      }
     }, marketType);
 
     return () => {
