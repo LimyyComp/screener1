@@ -61,10 +61,6 @@ export const ChartModal: React.FC = () => {
         type: 'volume',
       },
       priceScaleId: '',
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
     });
     volumeSeriesRef.current = volumeSeries;
 
@@ -152,20 +148,21 @@ export const ChartModal: React.FC = () => {
     };
   }, [selectedSymbol, marketType, timeframe]);
 
+  const isDarkMode = useStore((state) => state.isDarkMode);
+
   useEffect(() => {
     if (chartRef.current) {
-      const isDark = useStore.getState().isDarkMode;
       chartRef.current.applyOptions({
         layout: {
-          textColor: isDark ? '#e5e7eb' : '#1f2937',
+          textColor: isDarkMode ? '#e5e7eb' : '#1f2937',
         },
         grid: {
-          vertLines: { color: isDark ? '#374151' : '#e5e7eb' },
-          horzLines: { color: isDark ? '#374151' : '#e5e7eb' },
+          vertLines: { color: isDarkMode ? '#374151' : '#e5e7eb' },
+          horzLines: { color: isDarkMode ? '#374151' : '#e5e7eb' },
         },
       });
     }
-  }, [useStore((state) => state.isDarkMode)]);
+  }, [isDarkMode]);
 
   if (!selectedSymbol) return null;
 
