@@ -12,11 +12,22 @@ export const ChartModal: React.FC = () => {
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const wsRef = useRef<BinanceWebSocket | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    if (!selectedSymbol || !chartContainerRef.current) return;
+    if (!selectedSymbol) {
+      // Reset when no symbol selected
+      isInitializedRef.current = false;
+      setIsLoading(true);
+      return;
+    }
 
-    // Cleanup previous chart
+    // Wait for container to be rendered
+    if (!chartContainerRef.current) {
+      return;
+    }
+
+    // Cleanup previous chart and WebSocket
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
@@ -25,13 +36,15 @@ export const ChartModal: React.FC = () => {
       wsRef.current.disconnect();
       wsRef.current = null;
     }
-
+    candlestickSeriesRef.current = null;
+    volumeSeriesRef.current = null;
+    isInitializedRef.current = false;
     setIsLoading(true);
 
-    // Initialize chart only after container is ready
     const container = chartContainerRef.current;
     if (!container) return;
 
+    // Initialize chart
     const chart = createChart(container, {
       width: container.clientWidth,
       height: 500,
@@ -69,10 +82,20 @@ export const ChartModal: React.FC = () => {
     });
     volumeSeriesRef.current = volumeSeries;
 
+    isInitializedRef.current = true;
+
     // Load historical data
     fetchKlineHistory(selectedSymbol, timeframe)
       .then((klines) => {
-        if (!candlestickSeriesRef.current || !volumeSeriesRef.current) return;
+        if (!isInitializedRef.current || !candlestickSeriesRef.current || !volumeSeriesRef.current) {
+          return;
+        }
+
+        if (klines.length === 0) {
+          console.warn('No kline data received');
+          setIsLoading(false);
+          return;
+        }
 
         const candlestickData: CandlestickData[] = klines.map((k) => ({
           time: k.time as Time,
@@ -99,7 +122,9 @@ export const ChartModal: React.FC = () => {
         });
 
         setIsLoading(false);
-        chart.timeScale().fitContent();
+        if (chartRef.current) {
+          chartRef.current.timeScale().fitContent();
+        }
       })
       .catch((error) => {
         console.error('Error loading kline history:', error);
@@ -111,7 +136,11 @@ export const ChartModal: React.FC = () => {
     wsRef.current = ws;
 
     ws.connectKline(selectedSymbol, timeframe, (kline: KlineData) => {
-      if (candlestickSeriesRef.current && volumeSeriesRef.current) {
+      if (!isInitializedRef.current || !candlestickSeriesRef.current || !volumeSeriesRef.current) {
+        return;
+      }
+
+      try {
         candlestickSeriesRef.current.update({
           time: kline.time as Time,
           open: kline.open,
@@ -125,6 +154,8 @@ export const ChartModal: React.FC = () => {
           value: kline.volume,
           color: kline.close >= kline.open ? '#00d4aa80' : '#ff497680',
         });
+      } catch (error) {
+        console.error('Error updating chart:', error);
       }
     });
 
@@ -141,14 +172,18 @@ export const ChartModal: React.FC = () => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      isInitializedRef.current = false;
+      
       if (wsRef.current) {
         wsRef.current.disconnect();
         wsRef.current = null;
       }
+      
       if (chartRef.current) {
         chartRef.current.remove();
         chartRef.current = null;
       }
+      
       candlestickSeriesRef.current = null;
       volumeSeriesRef.current = null;
     };
@@ -174,13 +209,12 @@ export const ChartModal: React.FC = () => {
             ×
           </button>
         </div>
-        <div className="p-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-96">
+        <div className="p-6 relative">
+          <div ref={chartContainerRef} className="w-full" style={{ height: '500px' }} />
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-bg-secondary bg-opacity-75">
               <div className="text-text-secondary">Loading chart data...</div>
             </div>
-          ) : (
-            <div ref={chartContainerRef} className="w-full" style={{ height: '500px' }} />
           )}
         </div>
       </div>
